@@ -1,0 +1,6 @@
+## configurable variables
+IMG_HOSTNAME=tester
+IMG_NAME=qemu-img.ext4
+IMG_SIZE=2G
+SHARED_DIR="/tracee"
+#SHARED_DIR="/home/rafaeldtinoco/work/ebpf/tracee"
