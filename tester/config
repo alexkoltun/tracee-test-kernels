@@ -1,6 +1,16 @@
 ## configurable variables
 IMG_HOSTNAME=tester
 IMG_NAME=qemu-img.ext4
-IMG_SIZE=2G
+COMPRESS=0
+IMG_SIZE=3000MB
 SHARED_DIR="/tracee"
 #SHARED_DIR="/home/rafaeldtinoco/work/ebpf/tracee"
+#APT_CACHER="/127.0.0.1:3142"
+APT_CACHER=""
+#QEMU_ACCEL=kvm
+QEMU_ACCEL=tcg
+INSTALL_LINUX=1
+INSTALL_PKGS=1
+INSTALL_KERNELS=1
+INSTALL_FILES=1
+DEFAULT_TEST="trc2.sh"

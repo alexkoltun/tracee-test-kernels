@@ -9,6 +9,28 @@ info() {
 
 ## main
 
+# list available kernels (to be given as arguments) instead of running tracee
+
+if [[ "$1" == "list-kernels" ]]; then
+  kernel_list=$(find /tester/kernels/*vmlinuz* | xargs)
+  for k in $kernel_list; do
+    basename $k | sed 's:vmlinuz-::g'
+  done
+  exit
+fi
+
+# same, but listing tests now
+
+if [[ "$1" == "list-tests" ]]; then
+  test_list=$(find /tracee/tests/tracee-tester/*.sh | xargs)
+  for k in $test_list; do
+    basename $k
+  done
+  exit
+fi
+
+# run tracee
+
 cd /tracee
 
 if [[ ! -f .check-coretests ]]; then

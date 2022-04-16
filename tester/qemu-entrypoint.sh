@@ -3,7 +3,7 @@
 ## functions
 
 error_exit() {
-  echo -n "ERROR: "
+  echo -n "VM ERROR: "
   echo $@
   exit 1
 }
@@ -19,10 +19,12 @@ cleanup() {
 }
 
 beginhook() {
+  dmesg --console-off
   trap cleanup EXIT
   #trap -- '' PIPE
   #trap -- '' BUS
   # mount 9p tracee filesystem into /tracee
+  sleep 1 # this is needed for very quick boots orelse mount might fail due to 9p modules
   /bin/mount -t 9p -o trans=virtio,msize=104857600 tracee /tracee
 }
 
@@ -46,6 +48,10 @@ test_dependencies
 # uname
 uname -a
 
+# debug
+#bash
+#exit
+
 # prepare for tests
 
 rm -rf /tracee-tester
@@ -53,6 +59,13 @@ mkdir -p /tracee-tester
 cp /tracee/tests/tracee-tester/* /tracee-tester
 cd /tracee-tester
 chmod +x *
+
+# check given testname
+testname=$(cat /proc/cmdline | sed 's: :\n:g' | grep testname | cut -d'=' -f2)
+
+if [[ ! -x /tracee-tester/$testname ]]; then
+  error_exit "test file '$testname' was not found"
+fi
 
 # some kernels might need external BTF files
 
@@ -98,15 +111,21 @@ while true; do
   fi
 done
 
-# run trc*.sh script (according to given argument from cmdline)
+# run testname script/binary (according to given argument from /proc/cmdline)
 
 cd /tracee-tester
-./trc2.sh > /dev/null 2>&1
+./$testname > /dev/null 2>&1
 
 # give it 5 seconds so event can be processed
 sleep 5
-pkill tracee-ebpf
+
+# cleanup (avoid pipe write errors and things alike)
+exec 0<&-
+exec 1<&-
+exec 2<&-
+
 pkill tracee-rules
+pkill tracee-ebpf
 
 ## end hook executed by EXIT trap
 

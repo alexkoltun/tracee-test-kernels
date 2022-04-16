@@ -23,12 +23,13 @@ remove_tmpdir() {
   rmdir $tmpdir
 }
 
-bootstrap_debian() {
-  repository="http://deb.debian.org/debian/"
-  components="main,non-free,contrib"
+bootstrap_ubuntu() {
+  # relying in specific ubuntu version (because of toolchain versioning)
+  repository="http:/$APT_CACHER/archive.ubuntu.com/ubuntu/"
+  components="main,restricted,universe,multiverse"
   packages="locales,ifupdown"
   arch=$(dpkg-architecture -qDEB_HOST_ARCH || error_exit "arch")
-  distro=sid
+  distro=impish
 
   debootstrap \
     --components=$components \
@@ -115,7 +116,10 @@ chmod +x $tmpdir/init
 
 #--
 
-echo "deb http://deb.debian.org/debian/ sid main non-free contrib" \
+echo """
+deb http:/$APT_CACHER/br.archive.ubuntu.com/ubuntu $distro main restricted universe multiverse
+deb http:/$APT_CACHER/br.archive.ubuntu.com/ubuntu $distro-updates main restricted universe multiverse
+""" \
 | tee $tmpdir/etc/apt/sources.list
 
 }
@@ -128,6 +132,12 @@ cleanup() {
     umount $tmpdir
     remove_tmpdir
   fi
+
+  if [[ $finished -eq 1 && $COMPRESS -eq 1 ]]; then
+    echo "compressing img into qcow2"
+    qemu-img convert -c -O qcow2 $IMG_NAME temp
+    mv temp $IMG_NAME
+  fi
 }
 
 ## main
@@ -136,24 +146,34 @@ cleanup() {
 
 trap cleanup EXIT
 
-# sanity checks
-#[ ! -f $IMG_NAME ] || error_exit "$IMG_NAME already exists"
-#[ "$(ls -1 ./kernels/ | wc -l)" == "0" ] || error_exit "remove files from kernels/ before"
+# sanity check
+if [[ $INSTALL_LINUX -eq 1 ]]; then
+  [ ! -f $IMG_NAME ] || error_exit "$IMG_NAME already exists"
+fi
 
-# create the loopback file for the ext4 filesystem
-#truncate -s $IMG_SIZE $IMG_NAME
+# sanity check
+if [[ $INSTALL_KERNEL -eq 1 ]]; then
+  if [[ "$(ls -1 ./kernels/ | wc -l)" == "0" ]]; then
+    error_exit "remove files from kernels/ before"
+  fi
+fi
 
-# create ext4 filesystem
-#mkfs.ext4 $IMG_NAME
+# create loopback filesystem
+if [[ $INSTALL_LINUX -eq 1 ]]; then
+  # create the loopback file for the ext4 filesystem
+  truncate -s $IMG_SIZE $IMG_NAME
+  # create ext4 filesystem
+  mkfs.ext4 $IMG_NAME
+fi # INSTALL_LINUX
 
 # create temp bootstrap dir
 create_tmpdir
 
 # mount ext4 filesystem into temp bootstrap dir
-mount $IMG_NAME $tmpdir
+mount $IMG_NAME $tmpdir || error_exit "could not mount $IMG_NAME"
 
-# bootstrap debian
-#bootstrap_debian
+# bootstrap ubuntu
+[[ $INSTALL_LINUX -eq 1 ]] && bootstrap_ubuntu
 
 # bootstrap mount
 bootstrap_mount
@@ -162,57 +182,62 @@ bootstrap_mount
 echo $IMG_HOSTNAME | tee "$tmpdir/etc/hostname"
 
 # adjust locales
-bootstrap_run "echo en_US UTF-8 > /etc/locale.gen"
-bootstrap_run "locale-gen \"en_US UTF-8\""
+bootstrap_run "echo en_US.UTF-8 > /etc/locale.gen"
+bootstrap_run "locale-gen \"en_US.UTF-8\""
 
 # remove root password
 bootstrap_run "passwd -d root"
 
-# create needed files
-bootstrap_create_files
+if [[ $INSTALL_FILES -eq 1 ]]; then
+  # create needed files
+  bootstrap_create_files
+fi
 
-# customize image
-prefix="DEBIAN_FRONTEND=noninteractive"
-#bootstrap_run "$prefix apt-get update"
-#bootstrap_run "$prefix apt-get dist-upgrade -y"
-#bootstrap_run "$prefix apt-get -y install --no-install-recommends debconf"
-#bootstrap_run "echo debconf debconf/priority select low | debconf-set-selections"
-#bootstrap_run "$prefix dpkg-reconfigure debconf"
-#bootstrap_run "$prefix apt-get -y install --no-install-recommends tzdata"
-#bootstrap_run "$prefix dpkg-reconfigure tzdata"
-#bootstrap_run "$prefix apt-get -y install --no-install-recommends linux-headers-amd64"
-#bootstrap_run "$prefix apt-get -y install --no-install-recommends initramfs-tools"
-#bootstrap_run "$prefix apt-get -y install --no-install-recommends bash-completion"
-# (https://github.com/aquasecurity/tracee/tree/main/tests/tracee-tester) dependencies
-#bootstrap_run "$prefix apt-get -y install --no-install-recommends strace"
-#bootstrap_run "$prefix apt-get -y install --no-install-recommends ncat gcc"
-#bootstrap_run "$prefix apt-get -y install --no-install-recommends upx"
-#bootstrap_run "$prefix apt-get -y install --no-install-recommends python2"
-# clean cache
-bootstrap_run "$prefix apt-get --purge autoremove -y"
-bootstrap_run "$prefix apt-get autoclean"
+if [[ $INSTALL_PKGS -eq 1 ]]; then
+  # customize image
+  prefix="DEBIAN_FRONTEND=noninteractive"
+  bootstrap_run "$prefix apt-get update"
+  bootstrap_run "$prefix apt-get dist-upgrade -y"
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends debconf"
+  bootstrap_run "echo debconf debconf/priority select low | debconf-set-selections"
+  bootstrap_run "$prefix dpkg-reconfigure debconf"
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends tzdata"
+  bootstrap_run "$prefix dpkg-reconfigure tzdata"
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends linux-headers-generic"
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends initramfs-tools"
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends bash-completion"
+  # (https://github.com/aquasecurity/tracee/tree/main/tests/tracee-tester) dependencies
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends strace"
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends ncat gcc"
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends upx"
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends python2"
+  # clean cache
+  bootstrap_run "$prefix apt-get --purge autoremove -y"
+  bootstrap_run "$prefix apt-get autoclean"
+fi
 
-# install available kernels
-mkdir -p $tmpdir/temp || error_exit "could not create temp dir"
-files=$(find ../ ! -name *dbg* ! -name *libc* -name *.deb | xargs)
-cp $files $tmpdir/temp || error_exit "could not copy $files into temp dir"
-#bootstrap_run "$prefix dpkg -i /temp/*.deb"
-rm -rf $tmpdir/temp
+if [[ $INSTALL_KERNELS -eq 1 ]]; then
+  bootstrap_run "sed -Ei 's:COMPRESS=.*:COMPRESS=gzip:g' /etc/initramfs-tools/initramfs.conf"
+  # install available kernels
+  mkdir -p $tmpdir/temp || error_exit "could not create temp dir"
+  files=$(find ../ ! -name *dbg* ! -name *libc* -name *.deb | xargs)
+  cp $files $tmpdir/temp || error_exit "could not copy $files into temp dir"
+  bootstrap_run "$prefix dpkg -i /temp/*.deb"
+  rm -rf $tmpdir/temp
+  # organize existing btf files
+  rm -f ./kernels/*.btf
+  files=$(find ../ -name *.btf | xargs)
+  cp -f $files ./kernels || error_exit "could not copy $files into ./kernels"
+  # update-initramfs
+  bootstrap_run "update-initramfs -k all -c"
+  # bring installed kernel files to outside
+  cp $tmpdir/boot/*initrd.img* ./kernels/
+  cp $tmpdir/boot/*vmlinuz* ./kernels/
+  # take existing btf files inside the image
+  cp ./kernels/*.btf $tmpdir/boot/
+fi # INSTALL_KERNELS
 
-# organize existing btf files
-rm -f ./kernels/*.btf
-files=$(find ../ -name *.btf | xargs)
-cp -f $files ./kernels || error_exit "could not copy $files into ./kernels"
-
-# update-initramfs
-#bootstrap_run "update-initramfs -k all -c"
-
-# bring installed kernel files to outside
-#cp $tmpdir/boot/*initrd.img* ./kernels/
-#cp $tmpdir/boot/*vmlinuz* ./kernels/
-
-# take existing btf files inside the image
-cp ./kernels/*.btf $tmpdir/boot/
+finished=1
 
 # debug
 #bootstrap_run "bash"

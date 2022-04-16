@@ -1,4 +1,4 @@
-FROM debian:sid
+FROM ubuntu:impish
 
 # install needed environment
 
@@ -11,7 +11,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get install -y --no-install-recommends ssl-cert ca-certificates && \
     apt-get install -y --no-install-recommends pkg-config && \
     apt-get install -y --no-install-recommends llvm clang golang make gcc && \
-    apt-get install -y --no-install-recommends linux-headers-amd64 && \
+    apt-get install -y --no-install-recommends linux-headers-generic && \
     apt-get install -y --no-install-recommends qemu-system-x86 && \
     apt-get install -y --no-install-recommends libelf-dev && \
     apt-get install -y --no-install-recommends zlib1g-dev && \
