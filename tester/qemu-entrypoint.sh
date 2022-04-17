@@ -1,6 +1,15 @@
 #!/bin/bash -e
 
+##
+## QEMU BOOTS LINUX, EXECUTES THIS AND SHUTSDOWN
+##
+
 ## functions
+
+info() {
+  echo -n "VM INFO: "
+  echo $@
+}
 
 error_exit() {
   echo -n "VM ERROR: "
@@ -28,14 +37,14 @@ beginhook() {
   /bin/mount -t 9p -o trans=virtio,msize=104857600 tracee /tracee
 }
 
-test_dependencies() {
-  # placed here because some dirs are not be available during img creation
-  mkdir -p "/var/run/secrets/kubernetes.io/serviceaccount"
-  mkdir -p "/etc/kubernetes/pki"
-  echo test | tee "/var/run/secrets/kubernetes.io/serviceaccount/token" > /dev/null 2>&1
-  echo test | tee "/etc/kubernetes/pki/token" > /dev/null 2>&1
-  echo test | tee "/authorized_keys" > /dev/null 2>&1
-}
+# test_dependencies() {
+#   # placed here because some dirs are not be available during img creation
+#   mkdir -p "/var/run/secrets/kubernetes.io/serviceaccount"
+#   mkdir -p "/etc/kubernetes/pki"
+#   echo test | tee "/var/run/secrets/kubernetes.io/serviceaccount/token" > /dev/null 2>&1
+#   echo test | tee "/etc/kubernetes/pki/token" > /dev/null 2>&1
+#   echo test | tee "/authorized_keys" > /dev/null 2>&1
+# }
 
 ## main
 
@@ -43,29 +52,23 @@ test_dependencies() {
 beginhook
 
 # prepare test dependencies
-test_dependencies
+# test_dependencies
 
-# uname
-uname -a
-
-# debug
-#bash
-#exit
+# debug1
+# /bin/bash
+# exit
 
 # prepare for tests
 
 rm -rf /tracee-tester
-mkdir -p /tracee-tester
-cp /tracee/tests/tracee-tester/* /tracee-tester
-cd /tracee-tester
-chmod +x *
+
+info "pulling aquasec/tracee-tester:latest docker image"
+docker image pull aquasec/tracee-tester:latest
 
 # check given testname
 testname=$(cat /proc/cmdline | sed 's: :\n:g' | grep testname | cut -d'=' -f2)
 
-if [[ ! -x /tracee-tester/$testname ]]; then
-  error_exit "test file '$testname' was not found"
-fi
+info "selected test: $testname"
 
 # some kernels might need external BTF files
 
@@ -77,6 +80,8 @@ if [ "$kern_version" == "4.19" ]; then
   fi
 fi
 
+info "running kernel: $(uname -r)"
+
 # prepare for tracee
 
 rm -rf /tmp/tracee/*
@@ -86,35 +91,43 @@ if [[ ! -x ./dist/tracee-ebpf || ! -x ./dist/tracee-rules ]]; then
   error_exit "could not find tracee executables"
 fi
 
-events=$(./dist/tracee-rules --list-events)
+events=$(./dist/tracee-rules --rules $testname --list-events)
 
 # start tracee-ebpf & tracee-rules
 
 ./dist/tracee-ebpf \
-  -o format:json \
+  -o format:gob \
   -o option:parse-arguments \
   -o option:detect-syscall \
   -trace event=$events \
   | \
 ./dist/tracee-rules \
   --input-tracee=file:stdin \
-  --input-tracee format:json &
+  --input-tracee format:gob \
+  --rules $testname &
+
+# debug2
+#bash
+#exit
 
 # wait tracee-ebpf to be started (30 sec most)
 
 times=0
 while true; do
   times=$(($times + 1))
-  sleep 1 && [[ -f /tmp/tracee/out/tracee.pid ]] && break
+  sleep 1
+  if [[ -f /tmp/tracee/out/tracee.pid ]]; then
+    info "tracee is up"
+    break
+  fi
   if [[ $times -gt 30 ]]; then
-	  break
+    error_exit "time out waiting for tracee initialization"
   fi
 done
 
 # run testname script/binary (according to given argument from /proc/cmdline)
 
-cd /tracee-tester
-./$testname > /dev/null 2>&1
+docker run --rm aquasec/tracee-tester $testname > /dev/null 2>&1
 
 # give it 5 seconds so event can be processed
 sleep 5

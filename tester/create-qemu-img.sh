@@ -1,5 +1,9 @@
 #!/bin/bash
 
+##
+## CREATE QEMU IMG (able to run alle existing kernels, tracee and docker containers)
+##
+
 ## configurable variables
 
 . config
@@ -68,8 +72,8 @@ echo "/dev/vda / ext4 errors=remount-ro 0 1" \
 echo """auto lo
 iface lo inet loopback
 
-#auto eth0
-#iface eth0 inet dhcp
+auto eth0
+iface eth0 inet dhcp
 """ \
 | tee $tmpdir/etc/network/interfaces
 
@@ -116,11 +120,24 @@ chmod +x $tmpdir/init
 
 #--
 
-echo """
-deb http:/$APT_CACHER/br.archive.ubuntu.com/ubuntu $distro main restricted universe multiverse
-deb http:/$APT_CACHER/br.archive.ubuntu.com/ubuntu $distro-updates main restricted universe multiverse
+echo """# ubuntu
+deb http://archive.ubuntu.com/ubuntu $distro main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu $distro-updates main restricted universe multiverse
+# docker
+deb [trusted=yes] https://download.docker.com/linux/ubuntu $distro stable
 """ \
 | tee $tmpdir/etc/apt/sources.list
+
+}
+
+
+bootstrap_create_files_late() {
+
+mkdir -p $tmpdir/etc/docker
+echo """{
+  \"storage-driver\": \"overlay2\"
+}""" \
+| tee $tmpdir/etc/docker/daemon.json
 
 }
 
@@ -206,21 +223,31 @@ if [[ $INSTALL_PKGS -eq 1 ]]; then
   bootstrap_run "$prefix apt-get -y install --no-install-recommends linux-headers-generic"
   bootstrap_run "$prefix apt-get -y install --no-install-recommends initramfs-tools"
   bootstrap_run "$prefix apt-get -y install --no-install-recommends bash-completion"
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends ca-certificates"
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends curl ncat"
   # (https://github.com/aquasecurity/tracee/tree/main/tests/tracee-tester) dependencies
-  bootstrap_run "$prefix apt-get -y install --no-install-recommends strace"
-  bootstrap_run "$prefix apt-get -y install --no-install-recommends ncat gcc"
-  bootstrap_run "$prefix apt-get -y install --no-install-recommends upx"
-  bootstrap_run "$prefix apt-get -y install --no-install-recommends python2"
+  #bootstrap_run "$prefix apt-get -y install --no-install-recommends strace"
+  #bootstrap_run "$prefix apt-get -y install --no-install-recommends ncat gcc"
+  #bootstrap_run "$prefix apt-get -y install --no-install-recommends upx"
+  #bootstrap_run "$prefix apt-get -y install --no-install-recommends python2"
+  # docker repository
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends docker-ce docker-ce-cli containerd.io"
   # clean cache
   bootstrap_run "$prefix apt-get --purge autoremove -y"
   bootstrap_run "$prefix apt-get autoclean"
+fi
+
+if [[ $INSTALL_FILES -eq 1 ]]; then
+  # create needed files (after pkg installation)
+  bootstrap_create_files_late
 fi
 
 if [[ $INSTALL_KERNELS -eq 1 ]]; then
   bootstrap_run "sed -Ei 's:COMPRESS=.*:COMPRESS=gzip:g' /etc/initramfs-tools/initramfs.conf"
   # install available kernels
   mkdir -p $tmpdir/temp || error_exit "could not create temp dir"
-  files=$(find ../ ! -name *dbg* ! -name *libc* -name *.deb | xargs)
+  # files=$(find ../ ! -name *dbg* ! -name *libc* -name *.deb | xargs) # original
+  files=$(find ../ ! -name *dbg* ! -name *libc* -name *ubuntu*.deb | xargs) # debug
   cp $files $tmpdir/temp || error_exit "could not copy $files into temp dir"
   bootstrap_run "$prefix dpkg -i /temp/*.deb"
   rm -rf $tmpdir/temp

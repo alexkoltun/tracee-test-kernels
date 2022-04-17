@@ -1,5 +1,11 @@
 #!/bin/bash
 
+##
+## RUN QEMU INSIDE DOCKER
+## (booting selected kernel in either kvm or tcg emulation mode)
+## (will run tracee from /tracee and selected test)
+##
+
 # vi:syntax=sh:expandtab:smarttab:tabstop=2:shiftwidth=2:softtabstop=2
 
 ## configurable variables
@@ -64,7 +70,7 @@ if [ $COMPRESS -eq 1 ]; then
 fi
 
 # kernel cmdline
-cmdline="root=/dev/vda console=ttyS0 testname=$testname systemd.unified_cgroup_hierarchy=false quiet loglevel=0 systemd.log_level=0 vt.global_cursor_default=0"
+cmdline="root=/dev/vda console=ttyS0 testname=$testname systemd.unified_cgroup_hierarchy=false quiet loglevel=0 systemd.log_level=0 net.ifnames=0"
 
 # run qemu
 qemu-system-x86_64 \
@@ -78,6 +84,8 @@ qemu-system-x86_64 \
   -kernel $vmlinuz \
   -initrd $initrd \
   -append "$cmdline" \
+  -netdev user,id=mynet,net=192.168.76.0/24,dhcpstart=192.168.76.9 \
+  -device virtio-net-pci,netdev=mynet \
   -drive file=$IMG_NAME,if=virtio,format=$img_format \
   -virtfs local,path=$SHARED_DIR,mount_tag=tracee,security_model=passthrough
 

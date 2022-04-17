@@ -1,5 +1,9 @@
 #!/bin/bash -e
 
+##
+## CREATE DOCKER IMAGE CONTAINING QEMU (qemu img contains all needed kernels)
+##
+
 ## configurable variables
 
 . config

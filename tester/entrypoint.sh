@@ -1,5 +1,9 @@
 #!/bin/bash -e
 
+##
+## DOCKER IMAGE ENTRY POINT (executing qemu at the end)
+##
+
 ## functions
 
 info() {
@@ -19,25 +23,19 @@ if [[ "$1" == "list-kernels" ]]; then
   exit
 fi
 
-# same, but listing tests now
-
-if [[ "$1" == "list-tests" ]]; then
-  test_list=$(find /tracee/tests/tracee-tester/*.sh | xargs)
-  for k in $test_list; do
-    basename $k
-  done
-  exit
-fi
+# TODO: list available tests
 
 # run tracee
 
 cd /tracee
 
+info "dynamically compiling tracee for testing image"
 if [[ ! -f .check-coretests ]]; then
-  info "dynamically compiling tracee for tester userland"
-  make clean > /dev/null 2>&1
+  make clean > /dev/null 2>&1 # make sure tracee is compiled for qemu img userland
   make all -j8 > /dev/null 2>&1
   touch .check-coretests
+else
+  make all -j8 > /dev/null 2>&1 # make sure tracee binaries are latest
 fi
 
 info "running tracee inside virtualized environment"
