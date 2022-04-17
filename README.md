@@ -1,10 +1,20 @@
 # tracee-test-kernels
 
-This repository is meant to test [https://github.com/aquasecurity/tracee](https://github.com/aquasecurity/tracee) eBPF CO-RE features in multiple kernels. It works by creating a docker container that will receive arguments such as the kernel to run and the test to execute. This container creates a VM (fully emulated or kvm assisted), runs tracee on that VM and starts a docker container, inside created VM, that will simulate the security issue for the requested test.
+This repository is meant to test [https://github.com/aquasecurity/tracee](https://github.com/aquasecurity/tracee)
+eBPF CO-RE features in multiple kernels. It works by creating a docker
+container that will receive arguments such as the kernel to run and the test to
+execute. This container creates a VM (fully emulated or kvm assisted), runs
+tracee on that VM and starts a docker container, inside created VM, that will
+simulate the security issue for the requested test.
 
-> This is in the process of being integrated into tracee CI/CD pipeline within github actions.
+> This is in the process of being integrated into tracee CI/CD pipeline within
+> github actions.
 
 > It might be used as a standalone tool while developing tracee.
+
+> All kernels share the same config file so we're not testing different kconfig
+> options for different distributions, we are testing specific patched kernel
+> trees and our CO-RE supportability.
 
 ## How to use Tracee Kernel Tester
 
@@ -30,9 +40,11 @@ docker.io/rafaeldtinoco/tracee-test-kernels:latest
 3. `-e kern_version=5.10.111-stable` (pick one kernel from the "list-kernels" command)
 4. `-e test_name=TRC-7` (pick one test from the "list-tests" command, requires "(1)")
 
-> The tester will re-build your tree with root permissions (clean it with `sudo make clean` if needed)
+> The tester will re-build your tree with root permissions (clean it with `sudo
+> make clean` if needed)
 
-> The tester will not re-build your entire tree in 2nd, 3rd and subsequent calls (will run `make all` only)
+> The tester will not re-build your entire tree in 2nd, 3rd and subsequent
+> calls (will run `make all` only)
 
 ### Listing all available kernels
 
