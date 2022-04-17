@@ -246,8 +246,8 @@ if [[ $INSTALL_KERNELS -eq 1 ]]; then
   bootstrap_run "sed -Ei 's:COMPRESS=.*:COMPRESS=gzip:g' /etc/initramfs-tools/initramfs.conf"
   # install available kernels
   mkdir -p $tmpdir/temp || error_exit "could not create temp dir"
-  # files=$(find ../ ! -name *dbg* ! -name *libc* -name *.deb | xargs) # original
-  files=$(find ../ ! -name *dbg* ! -name *libc* -name *ubuntu*.deb | xargs) # debug
+  files=$(find ../ ! -name *dbg* ! -name *libc* -name *.deb | xargs) # original
+  # files=$(find ../ ! -name *dbg* ! -name *libc* -name *ubuntu*.deb | xargs) # debug
   cp $files $tmpdir/temp || error_exit "could not copy $files into temp dir"
   bootstrap_run "$prefix dpkg -i /temp/*.deb"
   rm -rf $tmpdir/temp

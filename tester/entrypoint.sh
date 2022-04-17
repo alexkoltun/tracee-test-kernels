@@ -11,19 +11,35 @@ info() {
   echo "$@"
 }
 
+error_exit() {
+  echo -n "VM ERROR: "
+  echo $@
+  exit 1
+}
+
 ## main
 
 # list available kernels (to be given as arguments) instead of running tracee
 
 if [[ "$1" == "list-kernels" ]]; then
-  kernel_list=$(find /tester/kernels/*vmlinuz* | xargs)
+  kernel_list=$(find /tester/kernels/*vmlinuz* | sort | xargs)
   for k in $kernel_list; do
     basename $k | sed 's:vmlinuz-::g'
   done
   exit
 fi
 
-# TODO: list available tests
+# list available tests (from shared tracee src tree) instead of running tracee
+
+if [[ "$1" == "list-tests" ]]; then
+  if [[ ! -d /tracee/tests ]]; then
+    error_exit "/tracee does not seem to be mounted"
+  fi
+  for test in $(find /tracee/tests/tracee-tester -name trc*.sh -exec basename {} \;); do
+    echo ${test/\.sh/};
+  done | sed 's:trc:TRC-:g' | sort
+  exit
+fi
 
 # run tracee
 
