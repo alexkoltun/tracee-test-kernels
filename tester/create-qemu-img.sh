@@ -152,8 +152,8 @@ cleanup() {
 
   if [[ $finished -eq 1 && $COMPRESS -eq 1 ]]; then
     echo "compressing img into qcow2"
-    qemu-img convert -c -O qcow2 $IMG_NAME temp
-    mv temp $IMG_NAME
+    mv $IMG_NAME $IMG_NAME.raw
+    qemu-img convert -c -O qcow2 $IMG_NAME.raw $IMG_NAME
   fi
 }
 
@@ -225,11 +225,6 @@ if [[ $INSTALL_PKGS -eq 1 ]]; then
   bootstrap_run "$prefix apt-get -y install --no-install-recommends bash-completion"
   bootstrap_run "$prefix apt-get -y install --no-install-recommends ca-certificates"
   bootstrap_run "$prefix apt-get -y install --no-install-recommends curl ncat"
-  # (https://github.com/aquasecurity/tracee/tree/main/tests/tracee-tester) dependencies
-  #bootstrap_run "$prefix apt-get -y install --no-install-recommends strace"
-  #bootstrap_run "$prefix apt-get -y install --no-install-recommends ncat gcc"
-  #bootstrap_run "$prefix apt-get -y install --no-install-recommends upx"
-  #bootstrap_run "$prefix apt-get -y install --no-install-recommends python2"
   # docker repository
   bootstrap_run "$prefix apt-get -y install --no-install-recommends docker-ce docker-ce-cli containerd.io"
   # clean cache

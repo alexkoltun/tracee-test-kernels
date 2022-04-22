@@ -30,21 +30,10 @@ cleanup() {
 beginhook() {
   dmesg --console-off
   trap cleanup EXIT
-  #trap -- '' PIPE
-  #trap -- '' BUS
   # mount 9p tracee filesystem into /tracee
   sleep 1 # this is needed for very quick boots orelse mount might fail due to 9p modules
   /bin/mount -t 9p -o trans=virtio,msize=104857600 tracee /tracee
 }
-
-# test_dependencies() {
-#   # placed here because some dirs are not be available during img creation
-#   mkdir -p "/var/run/secrets/kubernetes.io/serviceaccount"
-#   mkdir -p "/etc/kubernetes/pki"
-#   echo test | tee "/var/run/secrets/kubernetes.io/serviceaccount/token" > /dev/null 2>&1
-#   echo test | tee "/etc/kubernetes/pki/token" > /dev/null 2>&1
-#   echo test | tee "/authorized_keys" > /dev/null 2>&1
-# }
 
 ## main
 
@@ -55,8 +44,8 @@ beginhook
 # test_dependencies
 
 # debug1
-# /bin/bash
-# exit
+#/bin/bash
+#exit
 
 # prepare for tests
 
