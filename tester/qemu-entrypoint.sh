@@ -121,13 +121,16 @@ docker run --rm aquasec/tracee-tester $testname > /dev/null 2>&1
 # give it 5 seconds so event can be processed
 sleep 5
 
-# cleanup (avoid pipe write errors and things alike)
-exec 0<&-
-exec 1<&-
-exec 2<&-
+# cleanup
 
-pkill tracee-rules
-pkill tracee-ebpf
+exec 1>&-
+exec 2>&-
+
+kill -19 $(pidof tracee-rules) # stop them to avoid broken pipe errors
+kill -19 $(pidof tracee-ebpf) # stop them to avoid broken pipe errors
+
+kill -9 $(pidof tracee-rules)
+kill -9 $(pidof tracee-ebpf)
 
 ## end hook executed by EXIT trap
 
