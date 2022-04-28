@@ -12,10 +12,6 @@ simulate the security issue for the requested test.
 
 > It might be used as a standalone tool while developing tracee.
 
-> All kernels share the same config file so we're not testing different kconfig
-> options for different distributions, we are testing specific patched kernel
-> trees and our CO-RE supportability.
-
 ## How to use Tracee Kernel Tester
 
 1. First pull the container image (it is ~1.5 GB because of its internal virtual machine):

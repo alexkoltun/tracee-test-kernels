@@ -18,13 +18,14 @@ kvmaccel=$1
 vmlinuz=$2
 initrd=$3
 testname=$4
+checkcore=$5
 
 ## functions
 
 exit_syntax() {
   echo "syntax:"
-  echo "$0 [kvm|tcg] [vmlinuz] [initrd] [testname] or "
-  echo "kern_version=X test_name=Y kvm_accel=tcg|kvm $0"
+  echo "$0 [kvm|tcg] [vmlinuz] [initrd] [testname] [0|1] or "
+  echo "kern_version=X test_name=Y kvm_accel=tcg|kvm is_noncore=0|1 $0"
   exit 1
 }
 
@@ -56,6 +57,13 @@ check_args() {
   elif [[ "$test_name" == "" && "$testname" == "" ]]; then
     testname=$DEFAULT_TEST # default test to use
   fi
+  if [[ "$checkcore" == "" && "$is_noncore" == "" ]]; then
+	  noncore=0
+  else
+	  if [[ "$checkcore" == "1" || "$is_noncore" == "1" ]]; then
+	  	noncore=1
+	  fi
+  fi
   if [[ "$kvm_accel" == "tcg" || "$kvm_accel" == "kvm" ]]; then
     kvmaccel=$kvm_accel
   else
@@ -82,7 +90,7 @@ if [ $COMPRESS -eq 1 ]; then
 fi
 
 # kernel cmdline
-cmdline="root=/dev/vda console=ttyS0 testname=$testname systemd.unified_cgroup_hierarchy=false quiet loglevel=0 systemd.log_level=0 net.ifnames=0"
+cmdline="root=/dev/vda console=ttyS0 testname=$testname noncore=$noncore systemd.unified_cgroup_hierarchy=false quiet loglevel=0 systemd.log_level=0 net.ifnames=0"
 
 # run qemu
 qemu-system-x86_64 \

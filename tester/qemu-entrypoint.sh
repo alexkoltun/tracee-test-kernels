@@ -57,6 +57,9 @@ docker image pull aquasec/tracee-tester:latest
 # check given testname
 testname=$(cat /proc/cmdline | sed 's: :\n:g' | grep testname | cut -d'=' -f2)
 
+# check if noncore
+noncore=$(cat /proc/cmdline | sed 's: :\n:g' | grep noncore | cut -d'=' -f2)
+
 info "selected test: $testname"
 
 # some kernels might need external BTF files
@@ -79,6 +82,18 @@ cd /tracee
 if [[ ! -x ./dist/tracee-ebpf || ! -x ./dist/tracee-rules ]]; then
   error_exit "could not find tracee executables"
 fi
+
+# compile non-core ebpf object
+
+if [[ "$noncore" == "1" ]]; then
+  info "compiling tracee non CO-RE eBPF object for testing image"
+  make clean-bpf-nocore
+  make install-bpf-nocore
+  # export env var so tracee uses this instead of embedded CO-RE obj
+  export TRACEE_BPF_FILE=$(ls -1tr /tmp/tracee/*tracee.bpf*.o | head -n1)
+fi
+
+# run tracee
 
 events=$(./dist/tracee-rules --rules $testname --list-events)
 

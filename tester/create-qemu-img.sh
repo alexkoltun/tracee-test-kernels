@@ -130,7 +130,6 @@ deb [trusted=yes] https://download.docker.com/linux/ubuntu $distro stable
 
 }
 
-
 bootstrap_create_files_late() {
 
 mkdir -p $tmpdir/etc/docker
@@ -227,6 +226,10 @@ if [[ $INSTALL_PKGS -eq 1 ]]; then
   bootstrap_run "$prefix apt-get -y install --no-install-recommends curl ncat"
   # docker repository
   bootstrap_run "$prefix apt-get -y install --no-install-recommends docker-ce docker-ce-cli containerd.io"
+  # non co-re requires eBPF obj compilation inside qemu
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends build-essential"
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends llvm clang make gcc"
+  bootstrap_run "$prefix apt-get -y install --no-install-recommends linux-headers-generic"
   # clean cache
   bootstrap_run "$prefix apt-get --purge autoremove -y"
   bootstrap_run "$prefix apt-get autoclean"
@@ -242,7 +245,6 @@ if [[ $INSTALL_KERNELS -eq 1 ]]; then
   # install available kernels
   mkdir -p $tmpdir/temp || error_exit "could not create temp dir"
   files=$(find ../ ! -name *dbg* ! -name *libc* -name *.deb | xargs) # original
-  # files=$(find ../ ! -name *dbg* ! -name *libc* -name *ubuntu*.deb | xargs) # debug
   cp $files $tmpdir/temp || error_exit "could not copy $files into temp dir"
   bootstrap_run "$prefix dpkg -i /temp/*.deb"
   rm -rf $tmpdir/temp
